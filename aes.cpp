@@ -30,13 +30,14 @@ void aes()
 
     //Initialization
     memset(state_msg, '\0', sizeof(state_msg)); //using null as padding                          
-    memset(state_key, '\0', sizeof(state_key));
+    /* Space is used as padding instead of '\0' to allow key less than 128 bits     */
+    memset(state_key, ' ', sizeof(state_key));
     memset(hex_msg, '\0', sizeof(hex_msg));
-    memset(hex_key, '\0', sizeof(hex_key));
-    memset(keys, '\0', sizeof(keys));
-    memset(current_key, '\0', sizeof(current_key));
+    memset(hex_key, ' ', sizeof(hex_key));
+    memset(keys, ' ', sizeof(keys));
+    memset(current_key, ' ', sizeof(current_key));
 
-    cout<<"\nEnter 128 bit message\n> ";
+    cout<<"Enter 128 bit message\n> ";
     state_input(state_msg);
     cout<<"\nEnter 128 bit key\n> ";
     state_input(state_key);
