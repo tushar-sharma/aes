@@ -13,8 +13,6 @@ Implementation of AES. Rijndael was selected by NIST (National Institute of Stan
 
 ## Instructions 
 
-- aes.cpp contains the actual code
-- aes.h contains the header files required for aes.cpp 
 - input.txt contains the ASCII message to be encrypted 
 - key.txt contains the ASCII key used for encryption 
 - output.txt contains the cipher along with output of each stage
