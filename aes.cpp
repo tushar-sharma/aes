@@ -1,24 +1,337 @@
-/*
- * Purpose       : AES Implementation 
- * Last Modified : 7 / 12 / 12  
- * Indent Style  : K&R
- * Status        : Successfull
- * Author        : Tushar Sharma
- */
-
 #include <iostream>
+#include <stdlib.h>   
+#include <fstream>
 #include <cstring>
+#include <cstdio>
+#include <cassert>
 #include "aes.h"  //dependecy
 using namespace std;
+/*
+ *  Task 1 : Read the message & key from the file \
+ *           Store it in array.
+ *
+ *  Task 2 : Convert ASCII array to hexadecimal 
+ *
+ *  Task 3 : Generate keys for all rounds 
+ *
+ *  Task 4 : Perform encryption
+ *           - ByteSub Transformation
+ *           - Shift Rows
+ *           - Mix Cloumns 
+ *           - Add Round Key
+ *
+ * Task 5 : Perform decryption 
+ *          - Inverse ByteSub Transformation
+ *          - Inverse Shift Rows
+ *          - Inverse Mix Cloumns 
+ *          - Add Round Key
+ *
+ *  Author : Tushar Sharma <tushar.sharma1729@gmail.com> 
+ *  Last Modified  : Oct 26, 2015 
+ *  Status : OK
+*/
 
-int main(int argc, char **argv)
+void error_dsp(string msg) 
 {
-    aes();
-    cout<<endl;
-    return 0;
+    cerr<<msg<<endl;
+    exit(-1); 
 }
 
-void aes()
+void state_input(char foo[][4], char *filename)
+{
+    ifstream file(filename);
+    string bar;
+
+    assert(file.is_open());
+    getline(file, bar);
+
+
+    int index = 0;
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            if (index < bar.size()) {
+                foo[j][i] = bar[index++];
+            }
+        }
+    }
+    file.close();
+}
+
+void dsp(char foo[][4])
+{
+    for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+        if (foo[i][j] == '\0')
+        cout<<" ";
+        cout<<foo[i][j]<<" | ";
+    }
+    cout<<endl;
+    }
+}
+
+void dsp(char foo[][4][3])
+{
+    for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+        for (int k = 0; k < 3; k++) {
+        if (foo[i][j][k] == '\0')
+            cout<<" ";
+        cout<<foo[i][j][k];
+        }
+        cout<<" |  ";
+    }
+    cout<<endl;
+    }
+}
+
+void ascii_2_hex(char foo[][4], char bar[][4][3])
+{
+    int temp, index;
+    char arr[2];
+
+    memset(arr, '\0', sizeof(arr));
+
+    for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+            if (foo[i][j] != '\0') {
+            temp = (int)foo[i][j];
+            //cout<<"\n check "<<temp<<endl;
+            index = 0;
+            while (temp > 0) {
+            arr[index++] = base16[temp % 16];
+            temp = temp / 16;
+            }
+
+            for (int k = 0; k < 2; k++) {
+            bar[i][j][k] = arr[1 - k];
+            }
+            }
+    }
+    }
+}
+
+int toCheck(int temp)
+{
+    if (temp >= 65 && temp <= 90) {
+    return (temp - 55);
+    }
+    else if (temp >= 97  && temp <= 122){
+    return (temp - 87);
+    } else {
+    return (temp - 48);
+    }
+}
+
+char toHex(int temp)
+{
+    char ch;
+    while (temp > 0) {
+    ch = base16[temp % 16];
+    temp = temp / 16;
+    }
+    return ch;
+}
+
+void keyGen (char foo[][4][3], char bar[][4][3])
+{
+    //char temp[4][4][3];
+    char temp[4][1][3];
+    int offset = 0;
+
+    memset(temp, '\0', sizeof(temp));
+
+    for (int count = 0; count < 10; count++) {
+
+        //copy previous key to next key
+        for (int i = offset; i < (4 + offset); i++) {
+            for (int j = 0; j < 4; j++) {
+                for (int k = 0; k < 2; k++) {
+            if (offset == 0)
+                bar[i][j][k] = foo[i][j][k];
+            else
+                bar[i][j][k] = bar[i - 4][j][k];
+                }
+        }
+        }
+        cerr<<"\n********Starting key Generation**********\n\n";
+        //copy the fourth column of original key into temp
+        for (int i = 0; i < 4; i++) {
+            for (int k = 0; k < 2; k++) {
+                //bar[i][j][k] = foo[i][j][k]; 
+        if (bar[i + offset][3][k] != '\0')
+                    temp[i][0][k] = bar[i + offset][3][k];
+        }
+        }
+
+        //Putting 1st row of temp matrix to last
+        for (int i = 0; i < 3; i++) {
+            for (int k = 0; k < 2; k++) {
+                temp[i][0][k]     ^= temp[i + 1][0][k];
+                temp[i + 1][0][k] ^= temp[i][0][k];
+                temp[i][0][k]     ^= temp[i + 1][0][k];
+        }
+        }
+
+        cerr<<"\nPutting 1st row of temp matrix to last\n";
+        for (int i = 0; i < 4; i++) {
+            for (int k = 0; k < 2; k++) {
+                cerr<<temp[i][0][k];
+            }
+            cerr<<endl;
+        }
+
+        //Applying sbox to column of temp matrix
+        int arr[2] = {0};
+        for (int i = 0; i < 4; i++) {
+            for (int k = 0; k < 2; k++) {
+            if (temp[i][0][k] != '\0') {
+                    arr[k] = toCheck((int)temp[i][0][k]);
+                }
+        }
+
+
+        for (int k = 0; k < 2; k++) {
+                temp[i][0][k] = sbox[arr[0]][arr[1]][k];
+        }
+
+        arr[0] = 0;
+        arr[1] = 0;
+        }
+
+        cerr<<"\nApplying sbox to column of temp matrix\n";
+        for (int i = 0; i < 4; i++) {
+            for (int k = 0; k < 2; k++) {
+                cerr<<temp[i][0][k];
+            }
+            cerr<<endl;
+        }
+
+
+        //Xor the last column of temp matrix with round constant
+        for (int i = 0; i < 4; i++) {
+            for (int k = 0; k < 2; k++) {
+                 if (temp[i][0][k] != '\0') {
+                //cout<<"\ncheck\n";
+                //cout<<(int)toCheck((int)bar[i][3][k])<<" "<<toCheck((int)Rcons[i][0][k]);
+                    temp[i][0][k] = base16[toCheck((int)temp[i][0][k]) ^ toCheck((int)Rcons[i][count][k])];
+                }
+            }
+        }
+
+        cerr<<"\nXor the last column of temp matrix with round constant\n";
+        for (int i = 0; i < 4; i++) {
+            for (int k = 0; k < 2; k++) {
+                cerr<<temp[i][0][k];
+            }
+            cerr<<endl;
+        }
+
+
+
+        //for first column, xor first column with temp matrix 
+        for (int i = 0; i < 4; i++) {
+            for (int k = 0; k < 2; k++) {
+                bar[i + offset][0][k] = base16[toCheck((int)temp[i][0][k]) ^ toCheck((int)bar[i + offset][0][k])];
+        }
+        }
+
+        cerr<<"\nFirst column is\n";
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                for (int k = 0; k < 2; k++) {
+                    cerr<<bar[i][j][k];
+                }
+                cerr<<" ";
+            }
+            cerr<<endl;
+        }
+
+
+
+        //for 2nd column, xor second column with first column
+        for (int i = 0; i < 4; i++) {
+            for (int k = 0; k < 2; k++) {
+                bar[i + offset][1][k] = base16[toCheck((int)bar[i + offset][0][k]) ^ toCheck((int)bar[i + offset][1][k])];
+        }
+        }
+
+        cerr<<"\nSecond column is\n";
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                for (int k = 0; k < 2; k++) {
+                    cerr<<bar[i][j][k];
+                }
+                cerr<<" ";
+            }
+            cerr<<endl;
+        }
+
+
+
+        //for 3rd column, xor 3rd column with 2nd column
+        for (int i = 0; i < 4; i++) {
+            for (int k = 0; k < 2; k++) {
+                bar[i + offset][2][k] = base16[toCheck((int)bar[i + offset][1][k]) ^ toCheck((int)bar[i + offset][2][k])];
+        }
+        }
+
+        cerr<<"\nThird column is\n";
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                for (int k = 0; k < 2; k++) {
+                    cerr<<bar[i][j][k];
+                }
+                cerr<<" ";
+            }
+            cerr<<endl;
+        }
+
+
+
+        //for 4th column, xor 4th column with 3rd column
+        for (int i = 0; i < 4; i++) {
+            for (int k = 0; k < 2; k++) {
+                bar[i + offset][3][k] = base16[toCheck((int)bar[i + offset][2][k]) ^ toCheck((int)bar[i + offset][3][k])];
+        }
+        }
+
+        cerr<<"\nFourth column is\n";
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                for (int k = 0; k < 2; k++) {
+                    cerr<<bar[i][j][k];
+                }
+                cerr<<" ";
+            }
+            cerr<<endl;
+        }
+
+
+
+        offset += 4; //point to next key
+    }
+
+    cout<<endl;
+    int key_count = 1;
+    for (int i = 0; i < 40; i++) {
+        if (i % 4 == 0)
+            cout<<"\nkey No "<<key_count++<<endl;
+
+        for (int j = 0; j < 4; j++) {
+                     for (int k = 0; k < 2; k++) {
+                cout<<bar[i][j][k];
+        }
+        cout<<" | ";
+    }
+
+    if (i % 4 == 3)
+        cout<<"\n\n";
+    else
+        cout<<"\n";
+    }
+}
+
+void aes(char* m, char *k) 
 {
     char state_msg[4][4];  //message in state form
     char state_key[4][4];  //key in state form
@@ -37,17 +350,13 @@ void aes()
     memset(keys, ' ', sizeof(keys));
     memset(current_key, ' ', sizeof(current_key));
 
-    cout<<"Enter 128 bit message\n> ";
-    state_input(state_msg);
-    cout<<"\nEnter 128 bit key\n> ";
-    state_input(state_key);
- 
+    state_input(state_msg, m);
+    state_input(state_key, k);
 
     cout<<"\n128 bit Message is\n";
     dsp(state_msg);
     cout<<"\n128 bit Key is\n";
     dsp(state_key);
-
 
     ascii_2_hex(state_msg, hex_msg);
     cout<<"\nMessage in hex\n";
@@ -65,8 +374,8 @@ void aes()
     ARK (hex_msg, hex_key);
     cout<<"\nInitial Round -ARK\n";
     dsp(hex_msg);
- 
-    for (int round = 0; round < 9; round++) { 
+
+    for (int round = 0; round < 9; round++) {
         cout<<"\n Round "<<round + 1<<endl;
         ByteSub(hex_msg, 0);  //0 is for encryption mode
         cout<<"\nByte Substitution\n";
@@ -80,19 +389,19 @@ void aes()
         cout<<"\nMix Columns\n";
         dsp(hex_msg);
 
-	for (int i = 0; i < 4; i++) {
-	    for (int j = 0; j < 4; j++) {
-	        for (int k = 0; k < 2; k++) {
-		    current_key[i][j][k] = keys[i + offset][j][k];
-		}
-	    }
-	}
- 
-	ARK(hex_msg, current_key);
-	cout<<"\nARK \n";
-	dsp(hex_msg);
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            for (int k = 0; k < 2; k++) {
+            current_key[i][j][k] = keys[i + offset][j][k];
+        }
+        }
+    }
 
-	offset += 4;
+    ARK(hex_msg, current_key);
+    cout<<"\nARK \n";
+    dsp(hex_msg);
+
+    offset += 4;
     }
 
     cout<<"\n Round  10 \n";
@@ -106,16 +415,25 @@ void aes()
 
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
-	    for (int k = 0; k < 2; k++) {
-		current_key[i][j][k] = keys[i + offset][j][k];
-            }
-	}
-    }
+        for (int k = 0; k < 2; k++) {
+        current_key[i][j][k] = keys[i + offset][j][k];
+            }   
+    }   
+    }   
 
     ARK(hex_msg, current_key);
     cout<<"\nARK \n";
     dsp(hex_msg);
- 
+
+    cout<<"\nEncrypted Message in Hex\n\n";
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            for (int k = 0; k < 2; k++) cout<<hex_msg[i][j][k];
+            cout<<" ";
+        }
+    }
+    cout<<"\n"; 
+
     /******Decryption********/
     cout<<"\n\nDecryption\n";
     offset = 36;
@@ -207,94 +525,19 @@ void aes()
 
 }
 
-void state_input(char foo[][4])
-{
-	    string bar;
-	    getline(cin, bar);
-
-	    int index = 0;
-	    for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-		    if (index < bar.size()) {
-			foo[j][i] = bar[index++];
-		    }
-		}
-	    }
-}
-
-void dsp(char foo[][4])
-{
-    for (int i = 0; i < 4; i++) {
-	for (int j = 0; j < 4; j++) {
-	    if (foo[i][j] == '\0') 
-		cout<<" ";
-	    cout<<foo[i][j]<<" | ";
-	}
-	cout<<endl;
+int main(int argc, char **argv) 
+{ 
+    freopen( "output.txt", "w", stdout );
+    freopen( "error.txt", "w", stderr );
+    
+    if (argc != 3) {
+        error_dsp("Arguments Dont Match!");
     }
-}
 
-void dsp(char foo[][4][3])
-{
-    for (int i = 0; i < 4; i++) {
-	for (int j = 0; j < 4; j++) {
-	    for (int k = 0; k < 3; k++) {
-		if (foo[i][j][k] == '\0') 
-		    cout<<" ";
-		cout<<foo[i][j][k];
-	    }
-	    cout<<" |  ";
-	}
-	cout<<endl;
-    }
-}
+   
+    aes(argv[1], argv[2]); 
 
-void ascii_2_hex(char foo[][4], char bar[][4][3])
-{
-    int temp, index;
-    char arr[2];
-
-    memset(arr, '\0', sizeof(arr));
-
-    for (int i = 0; i < 4; i++) {
-	for (int j = 0; j < 4; j++) {
-            if (foo[i][j] != '\0') {
-	        temp = (int)foo[i][j];
-	        //cout<<"\n check "<<temp<<endl;
-	        index = 0;
-	        while (temp > 0) {
-		    arr[index++] = base16[temp % 16];
-		    temp = temp / 16;
-	        }
-		    
-	        for (int k = 0; k < 2; k++) {
-		    bar[i][j][k] = arr[1 - k];
-	        }
-            }
-	}
-    }
-}
-
-int toCheck(int temp)
-{
-    if (temp >= 65 && temp <= 90) {
-	return (temp - 55);
-    } 
-    else if (temp >= 97  && temp <= 122){
-	return (temp - 87);
-    } else {
-	return (temp - 48);
-    }
-}
-
-char toHex(int temp)
-{
-    char ch;
-    while (temp > 0) {
-	ch = base16[temp % 16];
-	temp = temp / 16;
-    }
-    return ch;
+    return 0;
 }
 
 void ARK(char foo[][4][3], char bar[][4][3])
@@ -420,17 +663,17 @@ void MixColumns (char foo[][4][3])
             }
          }
     } //end for
-    /*
+    cerr<<"\nMix column..\n";  
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
             for (int k = 0; k < 8; k++) {
-                cout<<word[i][j][k];
+                cerr<<word[i][j][k];
 	    }
-	    cout<<" ";
+	    cerr<<" ";
 	}
-	cout<<endl;
+	cerr<<endl;
     }
-    */
+   
   
     for (i = 0; i < 4; i++) { 
         for(j = 0; j < 4; j++) {
@@ -677,6 +920,7 @@ void InvMixColumns (char foo[][4][3])
 void f2 (int *word3)
 {
     int temp;
+    // exclusive-ored with 1b 
     int word2[8] = {0, 0, 0, 1, 1, 0, 1, 1};
     
     //left shift 
@@ -794,124 +1038,4 @@ void f14 (int *word3)
 
     f2(word3);
 }
-
-void keyGen (char foo[][4][3], char bar[][4][3])
-{
-    //char temp[4][4][3];
-    char temp[4][1][3];
-    int offset = 0;
-
-    memset(temp, '\0', sizeof(temp));
-
-    for (int count = 0; count < 10; count++) {
-
-        //copy previous key to next key
-        for (int i = offset; i < (4 + offset); i++) {
-            for (int j = 0; j < 4; j++) {
-                for (int k = 0; k < 2; k++) {
-		    if (offset == 0) 
-		        bar[i][j][k] = foo[i][j][k];
-		    else 
-		        bar[i][j][k] = bar[i - 4][j][k];
-                }
-	    }
-        }
-
-        //copy the fourth column of original key into temp
-        for (int i = 0; i < 4; i++) {
-            for (int k = 0; k < 2; k++) {
-                //bar[i][j][k] = foo[i][j][k]; 
-		if (bar[i + offset][3][k] != '\0')
-                    temp[i][0][k] = bar[i + offset][3][k];
-	    }
-        }
-
-        //Putting 1st row of temp matrix to last
-        for (int i = 0; i < 3; i++) {
-            for (int k = 0; k < 2; k++) {
-                temp[i][0][k]     ^= temp[i + 1][0][k];
-                temp[i + 1][0][k] ^= temp[i][0][k];
-                temp[i][0][k]     ^= temp[i + 1][0][k];
-	    }
-        }
-
-      
-        //Applying sbox to column of temp matrix
-        int arr[2] = {0};
-        for (int i = 0; i < 4; i++) {
-            for (int k = 0; k < 2; k++) {
-	        if (temp[i][0][k] != '\0') {
-                    arr[k] = toCheck((int)temp[i][0][k]); 
-                }
-	    }
-
-	    for (int k = 0; k < 2; k++) {
-                temp[i][0][k] = sbox[arr[0]][arr[1]][k];
-	    }
-
-	    arr[0] = 0;
-	    arr[1] = 0;
-        }
-	
-        
-        //Xor the last column of temp matrix with round constant
-        for (int i = 0; i < 4; i++) {
-            for (int k = 0; k < 2; k++) {
-                 if (temp[i][0][k] != '\0') {
-	            //cout<<"\ncheck\n";
-	            //cout<<(int)toCheck((int)bar[i][3][k])<<" "<<toCheck((int)Rcons[i][0][k]);
-                    temp[i][0][k] = base16[toCheck((int)temp[i][0][k]) ^ toCheck((int)Rcons[i][count][k])];
-                }
-            }
-        }
-
-        //for first column, xor first column with temp matrix 
-        for (int i = 0; i < 4; i++) {
-            for (int k = 0; k < 2; k++) {
-                bar[i + offset][0][k] = base16[toCheck((int)temp[i][0][k]) ^ toCheck((int)bar[i + offset][0][k])];
-	    }
-        }
-
-        //for 2nd column, xor second column with first column
-        for (int i = 0; i < 4; i++) {
-            for (int k = 0; k < 2; k++) {
-                bar[i + offset][1][k] = base16[toCheck((int)bar[i + offset][0][k]) ^ toCheck((int)bar[i + offset][1][k])];
-	    }
-        }
-
-        //for 3rd column, xor 3rd column with 2nd column
-        for (int i = 0; i < 4; i++) {
-            for (int k = 0; k < 2; k++) {
-                bar[i + offset][2][k] = base16[toCheck((int)bar[i + offset][1][k]) ^ toCheck((int)bar[i + offset][2][k])];
-	    }
-        }
  
-        //for 4th column, xor 4th column with 3rd column
-        for (int i = 0; i < 4; i++) {
-            for (int k = 0; k < 2; k++) {
-                bar[i + offset][3][k] = base16[toCheck((int)bar[i + offset][2][k]) ^ toCheck((int)bar[i + offset][3][k])];
-	    }
-        }
-	
-        offset += 4; //point to next key
-    }
-
-    cout<<endl;
-    int key_count = 1;
-    for (int i = 0; i < 40; i++) {
-        if (i % 4 == 0) 
-            cout<<"\nkey No "<<key_count++<<endl;
-
-        for (int j = 0; j < 4; j++) {
-                     for (int k = 0; k < 2; k++) {
-                cout<<bar[i][j][k];
-	    }
-	    cout<<" | ";
-	}
-
-	if (i % 4 == 3) 
-	    cout<<"\n\n";
-	else
-	    cout<<"\n";
-    }
-}
